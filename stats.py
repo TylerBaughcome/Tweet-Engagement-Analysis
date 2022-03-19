@@ -1,10 +1,16 @@
+from numpy import result_type
+import curl
+import tweepy
+from os.path import exists
 import requests
-import numpy
-from matplotlib import pyplot as plt
+import subprocess
+import user
+import plot
+import json
 from dotenv import dotenv_values
-from datetime import datetime, timedelta
 config = dotenv_values(".env")
-MIN_REACH = 50
+MIN_SCORE = 0
+HIGH_SCORE = 1000
 
 """
     Tweet characteristics to consider:
@@ -18,16 +24,7 @@ MIN_REACH = 50
     for engagment formula
 
 """
-def getPostsPastYear(user_id, bearer_token):    
-    dtformat = '%Y-%m-%dT%H:%M:%SZ'
-    max_results = 100
-    start_time = datetime.utcnow() - timedelta(days=365)
-    url = "https://api.twitter.com/2/users/{}/tweets?max_results={}&start_time={}".format(
-        user_id, max_results, start_time.strftime(dtformat)
-    )
-    response = requests.get(url, headers={"Authorization": "Bearer " + bearer_token})
-    response = response.json()
-    return response["data"]
+
 
 def get_engagement_score(tweet,user, bearer_token):
     """ -- Note that reach is simplified to a user's followers
@@ -39,31 +36,49 @@ def get_engagement_score(tweet,user, bearer_token):
     interaction = metrics["reply_count"] # Number of replies/comments
     approval = metrics["like_count"] # Number of likes
     reach = calculateReachPast7Days(user, bearer_token) 
-    return (3 * diffusion + 2 * interaction + 1.5 * approval) * reach/1000
+    return (3 * diffusion + 2 * interaction + 1.5 * approval) * reach / 1000000
 
 def calculateReachPast7Days(user, bearer_token):
     # Reach = number of followers
     return user["public_metrics"]["followers_count"]
     # Alternatively, reach = followers + magnitude of recent activity
-    #return user["public_metrics"]["followers_count"] * len(getPostsPastYear(user["id"], bearer_token))
+    #return user["public_metrics"]["followers_count"] * len(getPostsPastYear(user["id"], bearer_token)["data"])
 
-def plotTweetsByScoreIm(tweets, bearer_token):
-    # Plot tweets by engagement score (require minimum engagement score to reduce volume) 
-    tweets_with_images_scores = []
-    tweets_wo_images_scores = []
-    iter = 0
-    plt.scatter([i for i in range(1,len(tweets_with_images_scores)+1)], tweets_with_images_scores, label = "Media Present")
-    plt.scatter([i for i in range(1,len(tweets_wo_images_scores)+1)], tweets_wo_images_scores, label = "Media Absent")
-    plt.ylabel("Tweet Engagement Score")
-    plt.title("Tweet Engagement Score by Media Presence")
-    plt.legend()
-    plt.show()
-    pass
+def has140Length(tweet):
+    return len(tweet["text"]) >= 140
+
+def hasNonTwitterUri(tweet):
+    if "entities" in tweet\
+            and "urls" in tweet["entities"]:
+        for i in tweet["entities"]["urls"]:
+            if "expanded_url" in i:
+                if "twitter.com" not in i["expanded_url"]:
+                    return True
+            elif "display_url" in i:
+                if "twitter.com" not in i["display_url"]:
+                    return True
+            elif "url" in i:
+                if "t.co" not in i["url"]:
+                    return True
 
 def hasMedia(tweet, media_keys_by_id):
+    has_urls = "entities" in tweet\
+                    and "urls" in tweet["entities"]
+    if has_urls:
+        urls = tweet["entities"]["urls"]
+        for i in urls:
+            if "images" in i and len(i["images"]) > 0:
+                return True 
     return len(media_keys_by_id[tweet["id"]]) > 0
 
 def hasPhoto(tweet, media, media_keys_by_id):
+    has_urls = "entities" in tweet\
+                    and "urls" in tweet["entities"]
+    if has_urls:
+        urls = tweet["entities"]["urls"]
+        for i in urls:
+            if "images" in i and len(i["images"]) > 0:
+                return True
     id = tweet["id"]
     media_keys = media_keys_by_id[id]
     for i in media_keys:
@@ -88,9 +103,16 @@ def hasAnimatedGif(tweet, media, media_keys_by_id):
     return False
 
 def photoCount(tweet, media, media_keys_by_id):
+    count = 0
+    has_urls = "entities" in tweet\
+                    and "urls" in tweet["entities"]
+    if has_urls:
+        urls = tweet["entities"]["urls"]
+        for i in urls:
+            if "images" in i and len(i["images"]) > 0:
+                count+=len(i["images"])
     id = tweet["id"]
     media_keys = media_keys_by_id[id]
-    count = 0
     for i in media_keys:
         if media[i]["type"] == "photo":
             count+=1
@@ -114,30 +136,57 @@ def videoCount(tweet, media, media_keys_by_id):
             count+=1
     return count
 
-def saveTweetIds(tweets, bearer_token):
+def saveTweetIdsSpecial(tweets, bearer_token):
+    saved_tweets = 0
     id_file = open("ids.txt", "a")
-    media_file = open("byMedia/media.txt", "a")
-    nomedia_file = open("byMedia/nomedia.txt", "a")
-    iter = 1
     for i in tweets["data"]:
         score = get_engagement_score(i,tweets["users"][i["author_id"]], bearer_token)
-        id_file.write(i["id"] +  ' ' + str(score)+ "\n")
-        if hasMedia(i,tweets["media_keys_by_id"]):
-           media_file.write(i["id"] +  ' ' + str(score)+ "\n")
-        else:
-           nomedia_file.write(i["id"] +  ' ' + str(score)+ "\n")
-        iter+=1
+        if score > MIN_SCORE:
+            id_file.write(i["id"] +  ' ' + str(score)+ "\n")
+            if score > HIGH_SCORE:
+               username = user.getUsername(i["author_id"], bearer_token)
+               command = "python3 user.py {}".format(username)
+               process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+               output, error = process.communicate() 
+               print("Saved user {}: " +username)
+            saved_tweets+=1
+    return saved_tweets
 
+def saveTweetIds(scores, filename):
+    fp = open(filename, "w")
+    for i in scores:
+        fp.write(str(i) + str(scores[i]))
+    fp.close()
 
-def filterTweets(response):
-    previous_tweet_ids = set([line.strip().split()[0] for line in open("ids.txt")])
-    tweets = {"data":[], "media": {}, "users": {}}
+        
+
+def getTweet(id, bearer_token):
+    tweet_fields = "tweet.fields=public_metrics,referenced_tweets,entities,author_id,created_at"
+    expansions="expansions=attachments.media_keys,author_id"
+    user_fields = "user.fields=public_metrics,username"
+    media_fields="media.fields=media_key,url,preview_image_url,public_metrics"
+    url = "https://api.twitter.com/2/tweets/{}?{}&{}&{}&{}".format(id, expansions, tweet_fields, user_fields, media_fields)
+    response = curl.curl(url, bearer_token)
+    return response
+
+def getTweetsById(ids, bearer_token):
+    tweet_fields = "tweet.fields=public_metrics,referenced_tweets,entities,author_id,created_at"
+    expansions="expansions=attachments.media_keys,author_id"
+    user_fields = "user.fields=public_metrics,username"
+    media_fields="media.fields=media_key,url,preview_image_url,public_metrics"
+    url = "https://api.twitter.com/2/tweets?ids={}&{}&{}&{}&{}".format(",".join(ids), expansions, tweet_fields, user_fields, media_fields)
+    response = curl.curl(url, bearer_token)
+    return response
+
+def formatResponse(response):
+    tweets = {"data":[], "media": {}, "users": {}, "media_keys_by_id": {}}
+    if("data" not in response.keys()):
+        return tweets
     media_keys_by_id = {i["id"]:[] for i in response["data"]}
+    # Set pagination token
+    tweets["pagination_token"] = response["meta"]["next_token"] if "meta" in response and "next_token" in response["meta"] else ""
     # Get previous tweets 
     for i in response["data"]:
-       if i["id"] not in previous_tweet_ids and "referenced_tweets" not in i.keys():
-        # New tweets that are not retweets or a reply 
-        previous_tweet_ids.add(i["id"])
         if "attachments" in i.keys():
                 if "media_keys" in i["attachments"].keys():
                     for j in i["attachments"]["media_keys"]:
@@ -152,58 +201,89 @@ def filterTweets(response):
     tweets["media_keys_by_id"] = media_keys_by_id
     return tweets
 
-def getAllTweets(filename, bearer_token):
-    ids = [line.strip() for line in open(filename)]
-    tweet_fields = "tweet.fields=public_metrics,referenced_tweets,entities,author_id,created_at"
-    expansions="expansions=attachments.media_keys,author_id"
-    user_fields = "user.fields=public_metrics"
-    media_fields="media.fields=media_key,url,preview_image_url,public_metrics"
-    tweets = {"data":[], "media": {}}
-    media_keys_by_id = {i:[] for i in ids}
-    for i in range(0,len(ids),100):
-        print("Getting tweets {} to {}".format(i, i+100))
-        query_ids = ",".join(ids[i:i+100])
+
+def saveSubsetOfTweets(tweets, ids, bearer_token):
+        tweet_fields = "tweet.fields=public_metrics,referenced_tweets,entities,author_id,created_at"
+        expansions="expansions=attachments.media_keys,author_id"
+        user_fields = "user.fields=public_metrics,username"
+        media_fields="media.fields=media_key,url,preview_image_url,public_metrics"
+        query_ids = ",".join(ids)
         url ="https://api.twitter.com/2/tweets?ids={}&{}&{}&{}&{}".format(query_ids, tweet_fields, media_fields, expansions,user_fields)
-        response = requests.get(url, headers={"Authorization": "Bearer " + bearer_token})
-        response = response.json()
-        for j in response["data"]:
-            if "attachments" in j.keys():
-                if "media_keys" in j["attachments"].keys():
-                    for k in j["attachments"]["media_keys"]:
-                        media_keys_by_id[j["id"]].append(k)
-        tweets["data"].extend(response["data"])
-        for j in response["includes"]["media"]:
-                tweets["media"][j["media_key"]] = j
-    tweets["media_keys_by_id"] = media_keys_by_id
+        response = curl.curl(url, bearer_token)
+        new_tweets = formatResponse(response)
+        tweets["data"].extend(new_tweets["data"])
+        for i in new_tweets["media"]:
+            tweets["media"][i] = new_tweets["media"][i]
+        for i in new_tweets["users"]:
+            tweets["users"][i] = new_tweets["users"][i]
+        for i in new_tweets["media_keys_by_id"]:
+            tweets["media_keys_by_id"][i] = new_tweets["media_keys_by_id"][i]
+
+def getTweetsFromFile(filename):
+    if exists(filename):
+        return json.loads(open(filename).read())
+    else:
+        raise FileNotFoundError("getTweetsFromFile failed: file {} not found".format(filename))
+
+def getAllTweets(filename, bearer_token):
+    ids = [line.strip().split()[0] for line in open(filename)]
+    tweets = {"data":[], "media": {}, "users": {}, "media_keys_by_id": {}}
+    for i in range(0,len(ids),25):
+        print("Getting tweets {} to {} out of {}".format(i, i+25, len(ids)))
+        saveSubsetOfTweets(tweets, ids[i:i+25], bearer_token)
+    # Get remaining tweets
+    remaining_tweets = len(ids)%25
+    if remaining_tweets > 0:
+        print("Getting tweets {} to {} out of {}".format(len(ids)-remaining_tweets, len(ids), len(ids)))
+        saveSubsetOfTweets(tweets, ids[len(ids)-remaining_tweets:], bearer_token) 
+    # Update scores
+    fp = open(filename, "w")
+    for i in tweets["data"]:
+        fp.write(i["id"] + ' ' + str(get_engagement_score(i,tweets["users"][i["author_id"]], bearer_token)) + "\n")
+    fp.close()
     return tweets
 
-def getTweetsv2(bearer_token):   
+def saveTweets(filename, tweets):
+    fp = open(filename, "w")
+    fp.write(json.dumps(tweets))
+    fp.close()
+
+def getTweetsv2(pagination_token, bearer_token):   
     query = open("query.txt", "r").readlines()[0].strip()
-    tweet_fields = "tweet.fields=public_metrics,referenced_tweets,entities,author_id"
+    tweet_fields = "tweet.fields=public_metrics,referenced_tweets,entities,author_id,created_at"
     expansions="expansions=attachments.media_keys,author_id"
-    user_fields = "user.fields=public_metrics"
+    user_fields = "user.fields=public_metrics,username"
     media_fields="media.fields=media_key,url,preview_image_url,public_metrics"
-    url = "https://api.twitter.com/2/tweets/search/recent?query={}&{}&{}&{}&{}&max_results=100".format(
-        query, tweet_fields, media_fields, expansions,user_fields
+    url = "https://api.twitter.com/2/tweets/search/recent?query={}&{}&{}&{}&{}&max_results=100{}".format(
+        query, tweet_fields, media_fields, expansions,user_fields, "&next_token=" + pagination_token if len(pagination_token) > 0 else ""
     )
-    response = requests.get(url, headers={"Authorization": "Bearer " + bearer_token})
+    response = requests.get(url, headers={"Authorization": "Bearer {}".format(bearer_token)})
     return response.json()
+
+
+def getPopularTweetIds():
+    auth = tweepy.AppAuthHandler(config["TWITTER_API_KEY"], config["TWITTER_KEY_SECRET"])
+    api = tweepy.API(auth)
+    query = " ".join(open("query.txt", "r").readlines()[0].strip().split()[:29])
+    return list(map(str, api.search_tweets(query, count=100, result_type="popular", include_entities=True).ids()))
 
 if __name__ == "__main__":
     """v1.1
-    #Setup Twitter API via Tweepy v1.1
-    auth = tweepy.AppAuthHandler(config["TWITTER_API_KEY"], config["TWITTER_KEY_SECRET"])
-    api = tweepy.API(auth)
-    #Get popular anti-vax posts concerning Covid, government, politics, and propaganda    
-    tweets = getPopularTweets(api)
-    #Find what type of tweets are the most popular (i.e. videos, photos, just text)
     """
-#    client = tweepy.Client(
-#    consumer_key=config["TWITTER_API_KEY"],
-#    consumer_secret=config["TWITTER_KEY_SECRET"],
-#    access_token=config["TWITTER_ACCESS_TOKEN"],
-#    access_token_secret=config["TWITTER_ACCESS_TOKEN_SECRET"]
-#    )     
+    #Setup Twitter API via Tweepy v1.1
+    #Get popular anti-vax posts concerning Covid, government, politics, and propaganda    
+    v1tweets = getPopularTweetIds()
+
+    """v2"""
+    #Find what type of tweets are the most popular (i.e. videos, photos, just text)
     bearer_token = config["TWITTER_BEARER_TOKEN"]
     tweets = getAllTweets("ids.txt", bearer_token)
-    plotTweetsByScoreIm(tweets["data"],bearer_token)
+    saveTweets('result.txt',tweets)
+    #tweets = getTweetsFromFile("result.txt")
+    plot.plotTweetsByLength(tweets, MIN_SCORE, bearer_token)
+    plot.plotTweetsByMedia(tweets, MIN_SCORE, bearer_token)
+    plot.plotTweetsByUri(tweets, MIN_SCORE, bearer_token)
+    plot.plotTweetsByJustText(tweets, MIN_SCORE, bearer_token)
+    plot.plotTweetsByGT140(tweets, MIN_SCORE, bearer_token)
+    plot.plotTweetsWithin140Len(tweets, MIN_SCORE,bearer_token, 15)
+
