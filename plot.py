@@ -2,9 +2,13 @@ from matplotlib import pyplot as plt
 import numpy as np
 import stats
 from datetime import datetime
+UPPER_PERCENTILE = .05
 
-
-def plotTweetsByJustText(tweets, min_score, bearer_token, title = "Tweet Engagement Score by Sole Text Presence"):
+def saveFig(plt, dest):
+    fig = plt.gcf()
+    fig.set_size_inches((13, 9), forward=False)
+    fig.savefig(dest, dpi=500)
+def plotTweetsByJustText(tweets, min_score, bearer_token, title = "Tweet Engagement Score by Sole Text Presence",save_to = ""):
     # Sort entries by time
 
     # Identify media
@@ -29,16 +33,20 @@ def plotTweetsByJustText(tweets, min_score, bearer_token, title = "Tweet Engagem
     max_score = max(max([i[0] for i in tweets_wo_text]), max([i[0] for i in tweets_with_text]))
     tweets_with_text = [(i[0]/max_score, i[1]) for i in tweets_with_text]
     tweets_wo_text = [(i[0]/max_score, i[1]) for i in tweets_wo_text]
-    tweets_with_text = list(filter(lambda x: x[0] >= .1, tweets_with_text))
-    tweets_wo_text = list(filter(lambda x: x[0] >= .1, tweets_wo_text))
+    tweets_with_text = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_with_text))
+    tweets_wo_text = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_wo_text))
     plt.scatter([i[1] for i in tweets_with_text], [i[0] for i in tweets_with_text], label = "Just Text")
     plt.scatter([i[1] for i in tweets_wo_text], [i[0] for i in tweets_wo_text], label = "Other Attributes Present(e.g. media)")
     plt.ylabel("Tweet Engagement Score")
     plt.title(title)
     plt.legend()
-    plt.show()
+    if len(save_to) > 0:
+        saveFig(plt, save_to)
+    else:
+        plt.show()
+    clearPlt()
 
-def plotTweetsByMedia(tweets, min_score, bearer_token, title = "Tweet Engagement Score by Media Presence"):
+def plotTweetsByMedia(tweets, min_score, bearer_token, title = "Tweet Engagement Score by Media Presence",save_to = ""):
     # Identify media
     tweets_with_images_scores = []
     tweets_wo_images_scores = []
@@ -61,16 +69,20 @@ def plotTweetsByMedia(tweets, min_score, bearer_token, title = "Tweet Engagement
     max_score = max(max([i[0] for i in tweets_wo_images_scores]), max([i[0] for i in tweets_with_images_scores]))
     tweets_with_images_scores = [(i[0]/max_score, i[1]) for i in tweets_with_images_scores]
     tweets_wo_images_scores = [(i[0]/max_score, i[1]) for i in tweets_wo_images_scores]
-    tweets_with_images_scores = list(filter(lambda x: x[0] >= .1, tweets_with_images_scores))
-    tweets_wo_images_scores = list(filter(lambda x: x[0] >= .1, tweets_wo_images_scores))
+    tweets_with_images_scores = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_with_images_scores))
+    tweets_wo_images_scores = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_wo_images_scores))
     plt.scatter([i[1] for i in tweets_with_images_scores], [i[0] for i in tweets_with_images_scores], label = "Media Present")
     plt.scatter([i[1] for i in tweets_wo_images_scores], [i[0] for i in tweets_wo_images_scores], label = "Media Absent")
     plt.ylabel("Tweet Engagement Score")
     plt.title(title)
     plt.legend()
-    plt.show()
+    if len(save_to) > 0:
+        saveFig(plt, save_to)
+    else:
+        plt.show()
+    clearPlt()
 
-def plotTweetsByUri(tweets, min_score, bearer_token, title = "Tweet Engagement Score by Uri Presence"):
+def plotTweetsByUri(tweets, min_score, bearer_token, title = "Tweet Engagement Score by Uri Presence", save_to = ""):
     # Identify media
     tweets_with_uri = []
     tweets_wo_uri = []
@@ -92,16 +104,20 @@ def plotTweetsByUri(tweets, min_score, bearer_token, title = "Tweet Engagement S
     max_score = max(max([i[0] for i in tweets_wo_uri]), max([i[0] for i in tweets_with_uri]))
     tweets_with_uri = [(i[0]/max_score, i[1]) for i in tweets_with_uri]
     tweets_wo_uri = [(i[0]/max_score, i[1]) for i in tweets_wo_uri]
-    tweets_with_uri = list(filter(lambda x: x[0] >= .1, tweets_with_uri))
-    tweets_wo_uri = list(filter(lambda x: x[0] >= .1, tweets_wo_uri))
+    tweets_with_uri = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_with_uri))
+    tweets_wo_uri = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_wo_uri))
     plt.scatter([i[1] for i in tweets_with_uri], [i[0] for i in tweets_with_uri], label = "Uri Present")
     plt.scatter([i[1] for i in tweets_wo_uri], [i[0] for i in tweets_wo_uri], label = "Uri Absent")
     plt.ylabel("Tweet Engagement Score")
     plt.title(title)
     plt.legend()
-    plt.show()
+    if len(save_to) > 0:
+        saveFig(plt, save_to)
+    else:
+        plt.show()
+    clearPlt()
 
-def plotTweetsByGT140(tweets, min_score, bearer_token,  title = "Tweet Engagement Score by Longer and Shorter Text"):
+def plotTweetsByGT140(tweets, min_score, bearer_token,  title = "Tweet Engagement Score by Longer and Shorter Text",save_to = ""):
     # Identify media
     tweets_with_140 = []
     tweets_wo_140 = []
@@ -122,16 +138,21 @@ def plotTweetsByGT140(tweets, min_score, bearer_token,  title = "Tweet Engagemen
     max_score = max(max([i[0] for i in tweets_wo_140]), max([i[0] for i in tweets_with_140]))
     tweets_with_140 = [(i[0]/max_score, i[1]) for i in tweets_with_140]
     tweets_wo_140 = [(i[0]/max_score, i[1]) for i in tweets_wo_140]
-    tweets_with_140 = list(filter(lambda x: x[0] >= .1, tweets_with_140))
-    tweets_wo_140 = list(filter(lambda x: x[0] >= .1, tweets_wo_140))
+    tweets_with_140 = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_with_140))
+    tweets_wo_140 = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_wo_140))
     plt.scatter([i[1] for i in tweets_with_140], [i[0] for i in tweets_with_140], label = "Tweet Text Length $\geq$ 140")
     plt.scatter([i[1] for i in tweets_wo_140], [i[0] for i in tweets_wo_140], label = "Tweet Text Length < 140")
     plt.ylabel("Tweet Engagement Score")
     plt.title(title)
     plt.legend()
-    plt.show()
+    if len(save_to) > 0:
+        saveFig(plt, save_to)
+    else:
+        plt.show()
+    clearPlt()
 
-def plotTweetsByLength(tweets, min_score, bearer_token, title = "Tweet Engagement Score by Text Length"):
+
+def plotTweetsByLength(tweets, min_score, bearer_token, title = "Tweet Engagement Score by Text Length",save_to = ""):
     scores = []
     for i in tweets["data"]:
          score = stats.get_engagement_score(i, tweets["users"][i["author_id"]], bearer_token)
@@ -140,14 +161,18 @@ def plotTweetsByLength(tweets, min_score, bearer_token, title = "Tweet Engagemen
     scores.sort(key = lambda x: x[1])
     max_score = max(scores, key = lambda x: x[0])[0]
     scores = (list(map(lambda x: (x[0]/max_score,x[1]), scores)))
-    scores = list(filter(lambda x: x[0] >= .1 , scores))
+    scores = list(filter(lambda x: x[0] >= UPPER_PERCENTILE , scores))
     x = [i[1] for i in scores]
     y = [i[0] for i in scores]
     plt.scatter(x,y)
     plt.ylabel("Tweet Engagement Score")
     plt.title(title)
     plt.legend()
-    plt.show()
+    if len(save_to) > 0:
+        saveFig(plt, save_to)
+    else:
+        plt.show()
+    clearPlt()
 
 def quadRegression(x,y, plot):
     #polynomial fit with degree = 2
@@ -157,7 +182,7 @@ def quadRegression(x,y, plot):
     plot.plot(polyline, model(polyline))
 
 
-def plotTweetsWithin140Len(tweets, min_score, bearer_token, margin, title = "Tweet Engagement Score by Sole Text Presence"):
+def plotTweetsWithin140Len(tweets, min_score, bearer_token, margin, title = "Tweet Engagement Score by Sole Text Presence",save_to = ""):
     # Sort entries by time
 
     # Identify media
@@ -177,16 +202,26 @@ def plotTweetsWithin140Len(tweets, min_score, bearer_token, margin, title = "Twe
             ave_score_wo_text
     ave_score_text/=len(tweets_with_text)
     ave_score_wo_text/=len(tweets_wo_text)
-    print("Average Score with Text: " + str(ave_score_text))
-    print("Average Score without Text: " + str(ave_score_wo_text))
+    print("Average Score with {} <= len(Text) <= {}: ".format(140-margin, 140+margin) + str(ave_score_text))
+    print("Average Score without length(Text) < {} or length(Text) > {}: ".format(140-margin, 140+margin) + str(ave_score_wo_text))
     max_score = max(max([i[0] for i in tweets_wo_text]), max([i[0] for i in tweets_with_text]))
     tweets_with_text = [(i[0]/max_score, i[1]) for i in tweets_with_text]
     tweets_wo_text = [(i[0]/max_score, i[1]) for i in tweets_wo_text]
-    tweets_with_text = list(filter(lambda x: x[0] >= .1, tweets_with_text))
-    tweets_wo_text = list(filter(lambda x: x[0] >= .1, tweets_wo_text))
+    tweets_with_text = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_with_text))
+    tweets_wo_text = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_wo_text))
     plt.scatter([i[1] for i in tweets_with_text], [i[0] for i in tweets_with_text], label = "Tweets within 140 $\pm$ characters")
     plt.scatter([i[1] for i in tweets_wo_text], [i[0] for i in tweets_wo_text], label = "Tweets outside 140 $\pm$ characters")
     plt.ylabel("Tweet Engagement Score")
     plt.title(title)
     plt.legend()
-    plt.show()
+    if len(save_to) > 0:
+        saveFig(plt, save_to)
+    else:
+        plt.show()
+    clearPlt()
+
+def clearPlt():
+    plt.close()
+    plt.cla()
+    plt.clf()
+

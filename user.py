@@ -115,24 +115,22 @@ def getPostsPastYear(user_id, bearer_token):
     return data
 
 def plotUserTweetsByMedia(tweets, username,MIN_SCORE, bearer_token):
-    plot.plotTweetsByMedia(tweets, MIN_SCORE, bearer_token, title = "Tweets by Media Presence from {}".format(username))
+    plot.plotTweetsByMedia(tweets, MIN_SCORE, bearer_token, title = "Tweets by Media Presence from {}".format(username), save_to="byUser/{0}/byMedia.png".format(username))
 
 def plotUserTweetsByUri(tweets, username,MIN_SCORE, bearer_token):
-    plot.plotTweetsByUri(tweets, MIN_SCORE, bearer_token, title = "Tweets by URI Presence from {0}".format(username))
+    plot.plotTweetsByUri(tweets, MIN_SCORE, bearer_token, title = "Tweets by URI Presence from {0}".format(username), save_to="byUser/{0}/byUri.png".format(username))
 
 def plotUserTweetsByGT140(tweets, username,MIN_SCORE, bearer_token):
-    plot.plotTweetsByGT140(tweets, MIN_SCORE, bearer_token, title = "Tweets partitioned by 140 Characters from {}".format(username)) 
+    plot.plotTweetsByGT140(tweets, MIN_SCORE, bearer_token, title = "Tweets partitioned by 140 Characters from {}".format(username), save_to="byUser/{0}/GT140.png".format(username))
 
 def plotUserTweetsByLength(tweets, username,MIN_SCORE, bearer_token):
-    plot.plotTweetsByLength(tweets, MIN_SCORE, bearer_token, title = "Tweets By Text Length from {}".format(username))
+    plot.plotTweetsByLength(tweets, MIN_SCORE, bearer_token, title = "Tweets By Text Length from {}".format(username), save_to="byUser/{0}/tweets_by_length.png".format(username))
 
 def plotUserTweetsByJustText(tweets, username, MIN_SCORE, bearer_token):
-    plot.plotTweetsByJustText(tweets, MIN_SCORE, bearer_token, title = "Tweets with Just Text from {}".format(username))
+    plot.plotTweetsByJustText(tweets, MIN_SCORE, bearer_token, title = "Tweets with Just Text from {}".format(username), save_to="byUser/{0}/justText.png".format(username))
 
 def plotUserTweetsWithin140Len(tweets, username, MIN_SCORE, margin, bearer_token):
-    plot.plotTweetsWithin140Len(tweets, MIN_SCORE,bearer_token, margin, title = "Tweets within 140 $\pm$ {} Characters from {}".format(margin, username))
-
-
+    plot.plotTweetsWithin140Len(tweets, MIN_SCORE,bearer_token, margin, title = "Tweets within 140 $\pm$ {} Characters from {}".format(margin, username),save_to= "byUser/{0}/within140Len.png".format(username))
 
 if __name__ == "__main__":
     username = sys.argv[1]
@@ -146,10 +144,7 @@ if __name__ == "__main__":
 
     # Get Saved Tweets
     tweets = getUserTweetsFromFile(username)
-
     plotUserTweetsByMedia(tweets, username, MIN_SCORE, bearer)
     plotUserTweetsByUri(tweets, username, MIN_SCORE, bearer)
-    plotUserTweetsByGT140(tweets, username, MIN_SCORE, bearer)
     plotUserTweetsByLength(tweets, username, MIN_SCORE, bearer)
-    plotUserTweetsByJustText(tweets, username, MIN_SCORE, bearer)
     plotUserTweetsWithin140Len(tweets, username, MIN_SCORE, MARGIN, bearer)
