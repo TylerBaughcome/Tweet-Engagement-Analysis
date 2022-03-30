@@ -74,7 +74,7 @@ def getMaxUserTweets(user_id, bearer_token):
 def rateUserTweets(user_id, bearer_token):
     tweets = getMaxUserTweets(user_id, bearer_token)
     scores = {tweet["id"] : stats.get_engagement_score(tweet, tweets["users"][tweet["author_id"]],bearer_token) for tweet in tweets["data"]}
-    return {"user": user_id, "scores": scores}
+    return {"user": user_id, "scores": scores, "tweets": tweets}
 
 def saveUserTweetsById(username,user_id, bearer_token):
     prev_scores = {}
@@ -83,13 +83,15 @@ def saveUserTweetsById(username,user_id, bearer_token):
     else:
         makedirs("byUser/{0}".format(username))
     fp = open("byUser/{0}/{0}.txt".format(username), "w")
-    scores = rateUserTweets(user_id, bearer_token)["scores"]
+    result = rateUserTweets(user_id, bearer_token)
+    scores = result["scores"]
     for i in prev_scores:
         if i not in scores:
             scores[i] = prev_scores[i]
     for i in scores:
         fp.write(str(i) + ' ' + str(scores[i]) + "\n")
     fp.close()
+    return result["tweets"]
 
 def getUserTweetsById(username, bearer_token):
     if not exists("byUser/{0}/{0}.txt".format(username)):
@@ -118,7 +120,7 @@ def plotUserTweetsByMedia(tweets, username,MIN_SCORE, bearer_token):
     plot.plotTweetsByMedia(tweets, MIN_SCORE, bearer_token, title = "Tweets by Media Presence from {}".format(username), save_to="byUser/{0}/".format(username))
 
 def plotUserTweetsByUri(tweets, username,MIN_SCORE, bearer_token):
-    plot.plotTweetsByUri(tweets, MIN_SCORE, bearer_token, title = "Tweets by URI Presence from {0}".format(username), save_to="byUser/{0}/".format(username))
+    plot.plotTweetsByUri(tweets, MIN_SCORE, bearer_token, title = "Tweets by URL Presence from {0}".format(username), save_to="byUser/{0}/".format(username))
 
 def plotUserTweetsByGT140(tweets, username,MIN_SCORE, bearer_token):
     plot.plotTweetsByGT140(tweets, MIN_SCORE, bearer_token, title = "Tweets partitioned by 140 Characters from {}".format(username), save_to="byUser/{0}/".format(username))
@@ -138,12 +140,13 @@ if __name__ == "__main__":
     user_id = getUserId(username, bearer)
 
     # Get and Save New Tweets
-    #saveUserTweetsById(username, user_id,bearer)
-    #tweets = getUserTweetsById(username, bearer)
-    #stats.saveTweets("byUser/{0}/result.txt".format(username), tweets)
+    tweets = saveUserTweetsById(username, user_id,bearer)
+    stats.saveTweets("byUser/{0}/result.txt".format(username), tweets)
+
 
     # Get Saved Tweets
-    tweets = getUserTweetsFromFile(username)
+    #tweets = getUserTweetsFromFile(username)
+
     plotUserTweetsByMedia(tweets, username, MIN_SCORE, bearer)
     plotUserTweetsByUri(tweets, username, MIN_SCORE, bearer)
     plotUserTweetsByLength(tweets, username, MIN_SCORE, bearer)
