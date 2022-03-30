@@ -1,13 +1,24 @@
 from matplotlib import pyplot as plt
 import numpy as np
 import stats
+import csv
 from datetime import datetime
 UPPER_PERCENTILE = .05
 
-def saveFig(plt, dest):
+def saveFig(plt, folder, dest):
     fig = plt.gcf()
     fig.set_size_inches((13, 9), forward=False)
-    fig.savefig(dest, dpi=500)
+    fig.savefig(folder + dest, dpi=500)
+
+def saveTweetsToCSV(tweets, folder, dest):
+    fp = open("{}{}".format(folder, dest), "w")
+    writer =  csv.writer(fp)
+    header = ["id", "created_at", "score"]
+    writer.writerow(header)
+    for i in tweets["data"]:
+        row = [i[j] for j in i.keys()]
+        writer.writerow([i["id"], i["created_at"], i["score"]])
+
 def plotTweetsByJustText(tweets, min_score, bearer_token, title = "Tweet Engagement Score by Sole Text Presence",save_to = ""):
     # Sort entries by time
 
@@ -17,8 +28,11 @@ def plotTweetsByJustText(tweets, min_score, bearer_token, title = "Tweet Engagem
     tweets["data"] = sorted(tweets["data"], key = lambda x: datetime.strptime(x["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ'))
     ave_score_text = 0
     ave_score_no_text = 0
-    for i in tweets["data"]:
+    needed_data = []
+    for j in range(len(tweets["data"])):
+        i = tweets["data"][j]
         score = stats.get_engagement_score(i, tweets["users"][i["author_id"]], bearer_token)
+        tweets["data"][j]["score"] = score
         date = datetime.strptime(i["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ')
         if not stats.hasMedia(i, tweets["media_keys_by_id"]) and not stats.hasNonTwitterUri(i) and score > min_score:
             tweets_with_text.append((score, date))
@@ -41,7 +55,8 @@ def plotTweetsByJustText(tweets, min_score, bearer_token, title = "Tweet Engagem
     plt.title(title)
     plt.legend()
     if len(save_to) > 0:
-        saveFig(plt, save_to)
+        saveFig(plt, save_to, "justText.png")
+        saveTweetsToCSV(tweets, save_to, "justText.csv")
     else:
         plt.show()
     clearPlt()
@@ -53,8 +68,10 @@ def plotTweetsByMedia(tweets, min_score, bearer_token, title = "Tweet Engagement
     tweets["data"] = sorted(tweets["data"], key = lambda x: datetime.strptime(x["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ'))
     ave_score_media = 0
     ave_score_no_media = 0
-    for i in tweets["data"]:
+    for j in range(len(tweets["data"])):
+        i = tweets["data"][j]
         score = stats.get_engagement_score(i, tweets["users"][i["author_id"]], bearer_token)
+        tweets["data"][j]["score"] = score
         date = datetime.strptime(i["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ')
         if stats.hasMedia(i, tweets["media_keys_by_id"]) and score > min_score:
             tweets_with_images_scores.append((score, date))
@@ -77,20 +94,23 @@ def plotTweetsByMedia(tweets, min_score, bearer_token, title = "Tweet Engagement
     plt.title(title)
     plt.legend()
     if len(save_to) > 0:
-        saveFig(plt, save_to)
+        saveFig(plt, save_to, "byMedia.png")
+        saveTweetsToCSV(tweets, save_to, "byMedia.csv")
     else:
         plt.show()
     clearPlt()
 
-def plotTweetsByUri(tweets, min_score, bearer_token, title = "Tweet Engagement Score by Uri Presence", save_to = ""):
+def plotTweetsByUri(tweets, min_score, bearer_token, title = "Tweet Engagement Score by URL Presence", save_to = ""):
     # Identify media
     tweets_with_uri = []
     tweets_wo_uri = []
     tweets["data"] = sorted(tweets["data"], key = lambda x: datetime.strptime(x["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ'))
     ave_score_uri = 0
     ave_score_no_uri = 0
-    for i in tweets["data"]:
+    for j in range(len(tweets["data"])):
+        i = tweets["data"][j]
         score = stats.get_engagement_score(i, tweets["users"][i["author_id"]], bearer_token)
+        tweets["data"][j]["score"] = score
         if stats.hasNonTwitterUri(i) and score > min_score:
             tweets_with_uri.append((stats.get_engagement_score(i, tweets["users"][i["author_id"]], bearer_token), datetime.strptime(i["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ')))
             ave_score_uri+=score
@@ -106,13 +126,14 @@ def plotTweetsByUri(tweets, min_score, bearer_token, title = "Tweet Engagement S
     tweets_wo_uri = [(i[0]/max_score, i[1]) for i in tweets_wo_uri]
     tweets_with_uri = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_with_uri))
     tweets_wo_uri = list(filter(lambda x: x[0] >= UPPER_PERCENTILE, tweets_wo_uri))
-    plt.scatter([i[1] for i in tweets_with_uri], [i[0] for i in tweets_with_uri], label = "Uri Present")
-    plt.scatter([i[1] for i in tweets_wo_uri], [i[0] for i in tweets_wo_uri], label = "Uri Absent")
+    plt.scatter([i[1] for i in tweets_with_uri], [i[0] for i in tweets_with_uri], label = "URL Present")
+    plt.scatter([i[1] for i in tweets_wo_uri], [i[0] for i in tweets_wo_uri], label = "URL Absent")
     plt.ylabel("Tweet Engagement Score")
     plt.title(title)
     plt.legend()
     if len(save_to) > 0:
-        saveFig(plt, save_to)
+        saveFig(plt, save_to, "byUri.png")
+        saveTweetsToCSV(tweets, save_to, "byUri.csv")
     else:
         plt.show()
     clearPlt()
@@ -124,8 +145,10 @@ def plotTweetsByGT140(tweets, min_score, bearer_token,  title = "Tweet Engagemen
     tweets["data"] = sorted(tweets["data"], key = lambda x: datetime.strptime(x["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ'))
     ave_score_140 = 0
     ave_score_no_140 = 0 
-    for i in tweets["data"]:
+    for j in range(len(tweets["data"])):
+        i = tweets["data"][j]
         score = stats.get_engagement_score(i, tweets["users"][i["author_id"]], bearer_token)
+        tweets["data"][j]["score"] = score
         date = datetime.strptime(i["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ')
         if stats.has140Length(i) and score > min_score:
             tweets_with_140.append((score, date))
@@ -146,7 +169,8 @@ def plotTweetsByGT140(tweets, min_score, bearer_token,  title = "Tweet Engagemen
     plt.title(title)
     plt.legend()
     if len(save_to) > 0:
-        saveFig(plt, save_to)
+        saveFig(plt, save_to,  "GT140.png")
+        saveTweetsToCSV(tweets, save_to, "GT140.csv")
     else:
         plt.show()
     clearPlt()
@@ -154,8 +178,10 @@ def plotTweetsByGT140(tweets, min_score, bearer_token,  title = "Tweet Engagemen
 
 def plotTweetsByLength(tweets, min_score, bearer_token, title = "Tweet Engagement Score by Text Length",save_to = ""):
     scores = []
-    for i in tweets["data"]:
+    for j in range(len(tweets["data"])):
+         i = tweets["data"][j]
          score = stats.get_engagement_score(i, tweets["users"][i["author_id"]], bearer_token)
+         tweets["data"][j]["score"] = score
          if score > min_score:
             scores.append((score, len(i["text"])))
     scores.sort(key = lambda x: x[1])
@@ -169,7 +195,8 @@ def plotTweetsByLength(tweets, min_score, bearer_token, title = "Tweet Engagemen
     plt.title(title)
     plt.legend()
     if len(save_to) > 0:
-        saveFig(plt, save_to)
+        saveFig(plt, save_to, "tweets_by_length.png")
+        saveTweetsToCSV(tweets, save_to, "tweets_by_length.csv")
     else:
         plt.show()
     clearPlt()
@@ -191,8 +218,10 @@ def plotTweetsWithin140Len(tweets, min_score, bearer_token, margin, title = "Twe
     tweets["data"] = sorted(tweets["data"], key = lambda x: datetime.strptime(x["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ'))
     ave_score_text = 0
     ave_score_wo_text = 0
-    for i in tweets["data"]:
+    for j in range(len(tweets["data"])):
+        i = tweets["data"][j]
         score = stats.get_engagement_score(i, tweets["users"][i["author_id"]], bearer_token)
+        tweets["data"][j]["score"] = score
         date = datetime.strptime(i["created_at"], '%Y-%m-%dT%H:%M:%S.%fZ')
         if 140 - margin <= len(i["text"]) <= 140+margin and score > min_score:
             tweets_with_text.append((score, date))
@@ -215,7 +244,8 @@ def plotTweetsWithin140Len(tweets, min_score, bearer_token, margin, title = "Twe
     plt.title(title)
     plt.legend()
     if len(save_to) > 0:
-        saveFig(plt, save_to)
+        saveFig(plt, save_to,  "within140Len.png")
+        saveTweetsToCSV(tweets, save_to, "within140len.csv")
     else:
         plt.show()
     clearPlt()
